@@ -137,4 +137,7 @@ struct Token {
   struct string_view value;
 };
 
+void lexer_init(const char* filename);
+_Bool get_next_token(struct Token* out);
+
 #endif

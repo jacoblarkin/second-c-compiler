@@ -1,5 +1,5 @@
 CC = /opt/homebrew/bin/gcc-11
-CFLAGS = -Wall -Wextra -Wpedantic -Werror -std=c2x
+CFLAGS = -Wall -Wextra -Wconversion -Wpedantic -Werror -std=c2x
 LFLAGS = 
 
 INCLUDES = 
