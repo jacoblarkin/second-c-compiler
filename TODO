@@ -1,0 +1,15 @@
+# TODO
+
+## Lexer/Preprocessor
+
+[ ] Lex c23
+    - Missing unicode/wide chars and strings
+[x] Change to using lexer structs instead of global variables.
+    - This allows easier lexing of `#define` and `#include`
+[x] Implement `#error`, `#warning`, and `#pragma`
+[x] Implement `#define` and `#undef`
+[ ] Implement `#include` and `#embed`
+[ ] Implement `#ifdef`, `#ifndef`, `#elifdef`, `#elifndef`, `#else`, and `#endif`
+[ ] Implement `#if`, `__has_include`, `__has_embed`, `__has_c_attribute`
+[ ] Implement `#`, `##`, `__VA_ARGs__`, `__VA_OPT__`
+[ ] Add predefined macros (see [cpp-reference](https://en.cppreference.com/w/c/preprocessor/replace#Predefined_macros))
