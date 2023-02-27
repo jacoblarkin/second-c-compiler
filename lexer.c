@@ -114,6 +114,11 @@ struct string_view curr_def = {0};
 int curr_def_pos = 0;
 bool in_def = false;
 
+static inline char* lexer_loc()
+{
+    return &lexer->buffer[lexer->buffer_loc];
+}
+
 static inline char previous()
 {
   return lexer->buffer[lexer->buffer_loc - 1];
@@ -358,15 +363,21 @@ enum TType lex_number(struct string_view* value)
 {
   bool dot = match('.');
   bool exp = false;
-  bool hex = match('0') && matchOne("xX");
-  bool bin = !hex && match('0') && matchOne("bB");
-  bool oct = !hex && !bin && match('0');
+  bool hex = peek() == '0' && (peekNext() == 'x' || peekNext() == 'X');
+  bool bin = !hex && peek() == '0' && (peekNext() == 'b' || peekNext() == 'B');
+  bool oct = !dot && !hex && !bin && match('0');
   int u_suffix = 0;
   int l_suffix = 0;
   int f_suffix = 0;
   int d_suffix = 0;
 
-  if(hex || bin) value->length++;
+  if(!hex && !bin && !oct && !dot) value->length = 0;
+  else if(oct || dot) value->length = 1;
+  else if(hex || bin) {
+      advance();
+      advance();
+      value->length = 2;
+  }
 
   // Handle binary literals separately since they can only accept 0 or 1
   if(bin) {
@@ -516,32 +527,31 @@ enum TType lex_identifier_or_keyword(struct string_view* value)
 
   struct string_view defined = preproc_table_get(prepTable, *value);
   if(defined.begin != NULL) {
-    lexer_push_text(defined);
-    longjmp(jbuf, 1);
+      lexer_push_text(defined);
+      longjmp(jbuf, 1);
   }
   struct Macro defined_macro = macro_table_get(macroTable, *value);
   if(defined_macro.text.begin != NULL) {
-    while(matchSpace()) ;
-    if(!match('(')) error("Expected '(' after macro name");
-    Array(struct string_view) arguments = array_new();
-    array_capacity(arguments) = 0;
-    array_length(arguments) = 0;
-    array_ensure(&arguments, 4);
-    while(!match(')')) {
-      struct string_view arg = { .begin = &lexer->buffer[lexer->buffer_loc],
-                                 .length = 0};
-      while(!match(',') && !match(')')) {
-        advance();
-        arg.length++;
+      while(matchSpace()) ;
+      if(!match('(')) error("Expected '(' after macro name");
+      Array(struct string_view) arguments = array_new();
+      array_capacity(arguments) = 0;
+      array_length(arguments) = 0;
+      array_ensure(&arguments, 4);
+      while(!match(')')) {
+          struct string_view arg = { .begin = &lexer->buffer[lexer->buffer_loc],
+              .length = 0};
+          while(!match(',') && !match(')')) {
+              advance();
+              arg.length++;
+          }
+          array_sv_append(&arguments, arg);
+          if(previous() == ')') break;
       }
-      array_sv_append(&arguments, arg);
-      if(previous() == ')') break;
-    }
-    char* text = macro_expand(defined_macro, arguments);
-    printf("%s", text);
-    array_free(arguments);
-    lexer_push_str(text);
-    longjmp(jbuf, 1);
+      char* text = macro_expand(defined_macro, arguments);
+      array_free(arguments);
+      lexer_push_str(text);
+      longjmp(jbuf, 1);
   }
 
   for(int i = 0; i < NUM_KEYWORD; i++) {
@@ -622,17 +632,13 @@ void lex_macro(struct string_view to_define) {
   array_length(arg_names) = 0;
   array_sv_ensure(&arg_names, 4);
 
-  printf("Defining macro: ");
-  print_strview(to_define);
-  printf("\n");
-
   while(!match(')')) {
     while(matchSpace()) {
       if(previous() == '\n') {
         error("Expected expression to expand macro into");
       }
     }
-    struct string_view arg = { .begin = &lexer->buffer[lexer->buffer_loc],
+    struct string_view arg = { .begin = lexer_loc(),
                                .length = 0 };
     while(!match(',') && !matchSpace() && !match(')')) {
       arg.length++;
@@ -640,9 +646,6 @@ void lex_macro(struct string_view to_define) {
     }
     if(previous() == ')') {
       array_sv_append(&arg_names, arg);
-      printf("Appending arg ");
-      print_strview(arg);
-      printf("\n");
       break;
     }
     if(previous() == '\n') {
@@ -652,18 +655,10 @@ void lex_macro(struct string_view to_define) {
       while(!match(',') && !match(')')) advance();
       if(previous() == ')') {
         array_sv_append(&arg_names, arg);
-        printf("Appending arg ");
-        print_strview(arg);
-        printf("\n");
         break;
       }
     }
-    printf("Array capacity: %zu\n", array_capacity(arg_names));
-    printf("Array length: %zu\n", array_length(arg_names));
     array_sv_append(&arg_names, arg);
-    printf("Appending arg ");
-    print_strview(arg);
-    printf("\n");
   }
 
   while(matchSpace()) {
@@ -672,7 +667,7 @@ void lex_macro(struct string_view to_define) {
     }
   }
 
-  struct string_view macro_exp = { .begin = &lexer->buffer[lexer->buffer_loc],
+  struct string_view macro_exp = { .begin = lexer_loc(),
                                    .length = 0 };
 
   while(!match('\n')) {
@@ -694,7 +689,7 @@ void preprocessor_lexer()
     }
   }
 
-  struct string_view directive = (struct string_view){ .begin = &lexer->buffer[lexer->buffer_loc],
+  struct string_view directive = (struct string_view){ .begin = lexer_loc(),
                                                        .length = 0};
   while(matchAlpha()) directive.length++;
 
@@ -707,7 +702,7 @@ void preprocessor_lexer()
         return;
       }
     }
-    struct string_view to_define = (struct string_view){ .begin = &lexer->buffer[lexer->buffer_loc],
+    struct string_view to_define = (struct string_view){ .begin = lexer_loc(),
                                                          .length = 0};
     while(!matchSpace()) {
       if(match('(')) {
@@ -724,7 +719,7 @@ void preprocessor_lexer()
           goto set_define;
         }
       }
-      value.begin = &lexer->buffer[lexer->buffer_loc];
+      value.begin = lexer_loc();
       while(!match('\n')) {
         advance();
         value.length++;
@@ -743,7 +738,7 @@ set_define:
         return;
       }
     }
-    struct string_view to_undef = (struct string_view){ .begin = &lexer->buffer[lexer->buffer_loc],
+    struct string_view to_undef = (struct string_view){ .begin = lexer_loc(),
                                                         .length = 0};
     while(!matchSpace()) {
       advance();
@@ -776,7 +771,7 @@ set_define:
         return;
       }
     }
-    struct string_view to_err = (struct string_view){ .begin = &lexer->buffer[lexer->buffer_loc],
+    struct string_view to_err = (struct string_view){ .begin = lexer_loc(),
                                                       .length = 0};
     while(!match('\n')) {
       advance();
@@ -796,7 +791,7 @@ set_define:
         return;
       }
     }
-    struct string_view to_warn = (struct string_view){ .begin = &lexer->buffer[lexer->buffer_loc],
+    struct string_view to_warn = (struct string_view){ .begin = lexer_loc(),
                                                        .length = 0};
     while(!match('\n')) {
       advance();
@@ -816,7 +811,7 @@ set_define:
         return;
       }
     }
-    struct string_view to_warn = (struct string_view){ .begin = &lexer->buffer[lexer->buffer_loc],
+    struct string_view to_warn = (struct string_view){ .begin = lexer_loc(),
                                                        .length = 0};
     while(!match('\n')) {
       advance();
@@ -856,7 +851,7 @@ skip_whitespace:
  
   out->line = lexer->line;
   out->position = lexer->position;
-  struct string_view token_value = (struct string_view){.begin = &lexer->buffer[lexer->buffer_loc], .length = 1};
+  struct string_view token_value = (struct string_view){.begin = lexer_loc(), .length = 1};
   
   char next = ' ';
 

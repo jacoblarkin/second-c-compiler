@@ -1,8 +1,8 @@
-#CC = /opt/homebrew/bin/gcc-12
-CC = clang
+CC = /opt/homebrew/bin/gcc-12
+#CC = clang
 #CFLAGS = -Wall -Wextra -Wconversion -Wpedantic -Werror -std=c2x
-CFLAGS = -Wall -Wextra -Wconversion -Wpedantic -std=c2x
-#CFLAGS = -Wall -Wextra -Wconversion -Wpedantic -Wshadow -std=gnu2x -fanalyzer
+#CFLAGS = -Wall -Wextra -Wconversion -Wpedantic -std=c2x
+CFLAGS = -Wall -Wextra -Wconversion -Wpedantic -Wshadow -std=gnu2x -fanalyzer
 LFLAGS = 
 
 INCLUDES = 
@@ -15,7 +15,7 @@ EXE = ccomp
 all: $(EXE)
 	@echo Compiler has been compiled! Executable is named $(EXE).
 
-debug: CFLAGS += -DDEBUG -g -O0 -fsanitize=address 
+debug: CFLAGS += -DDEBUG -g -O0 
 debug: $(EXE)
 
 $(EXE): $(OBJS)

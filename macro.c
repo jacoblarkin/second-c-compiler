@@ -17,8 +17,6 @@ struct Macro macro_copy(struct Macro to_copy) {
   array_sv_ensure(&copy.arg_names, array_length(to_copy.arg_names));
   for(unsigned long i = 0; i < array_length(to_copy.arg_names); i++) {
     array_sv_append(&(copy.arg_names), to_copy.arg_names[i]);
-    //copy.arg_names[i] = to_copy.arg_names[i];
-    //array_length(copy.arg_names)++;
   }
   return copy;
 }
@@ -26,13 +24,7 @@ struct Macro macro_copy(struct Macro to_copy) {
 static inline int arg_index(Array(struct string_view) names, struct string_view name)
 {
   for(size_t i = 0; i < array_length(names); ++i) {
-      printf("Checking arg %zu: ", i);
-      print_strview(names[i]);
-      printf("\n");
-    if(!strviewcmp(names[i], name)) {
-        printf("Matched to arg number %zu\n", i);
-        return (int)i;
-    }
+    if(!strviewcmp(names[i], name)) return (int)i;
   }
   return -1;
 }
